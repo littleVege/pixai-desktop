@@ -37,4 +37,4 @@ Apple Silicon 应用位于 `release/mac-arm64/PixAI Desktop.app`。在没有 Dev
 
 ### macOS 安装包
 
-从 [GitHub Releases](https://github.com/littleVege/pixai-desktop/releases) 下载与 Mac 芯片对应的 DMG。每个 PR 会在 GitHub 上运行测试并分别构建 Apple Silicon 和 Intel 安装包。维护者将版本变更通过 PR 合入后，在对应提交推送与 `package.json` 一致的 `vX.Y.Z` 标签，即可生成带 SHA-256 校验文件的 Release。
+从 [GitHub Releases](https://github.com/littleVege/pixai-desktop/releases) 下载与 Mac 芯片对应的 DMG。每个 PR 会在 GitHub 上运行 CI，并分别构建 Apple Silicon 和 Intel 安装包。CI 检查项目源码、运行单元测试和 TypeScript 构建，再在真实 Electron 进程中验证 SQLite 持久化和 Worker 崩溃恢复。合入 main 后会再次运行 CI，版本标签的 CI 和两项打包检查均通过后才会发布。维护者将版本变更通过 PR 合入后，在对应提交推送与 `package.json` 一致的 `vX.Y.Z` 标签，即可生成带 SHA-256 校验文件的 Release。

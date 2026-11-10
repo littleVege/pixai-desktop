@@ -1,0 +1,35 @@
+name: Continuous integration
+
+on:
+  push:
+    branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Quality and Electron runtime
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Lint project sources
+        run: npm run lint -- --ignore-pattern 'electron/vendor/**' --deny-warnings
+      - name: Unit tests
+        run: npm test
+      - name: Type check and compile application
+        run: npm run build
+      - name: Prepare native modules for Electron
+        run: npx --no-install electron-builder install-app-deps
+      - name: Verify IPC and SQLite persistence
+        run: npx --no-install electron scripts/smoke-electron.mjs
+      - name: Verify recovery after a worker crash
+        run: npx --no-install electron scripts/check-worker-recovery.mjs
