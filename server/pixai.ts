@@ -44,8 +44,23 @@ export function createPixaiClient(apiKey: string) {
     return data.media
   }
 
+  async function experimentRequest(id: string, choice?: string) {
+    const endpoint = 'https://api.pixai.art/v2/task/' + encodeURIComponent(id) + '/model-experiment-session'
+    const response = await fetch(choice ? endpoint + '/preference' : endpoint, {
+      method: choice ? 'POST' : 'GET',
+      headers: { Authorization: `Bearer ${apiKey}`, 'User-Agent': USER_AGENT, ...(choice && { 'Content-Type': 'application/json' }) },
+      body: choice ? JSON.stringify({ choice }) : undefined,
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!choice && response.status === 404) return null
+    if (!response.ok) throw new PixaiError(`PixAI 选图请求失败（HTTP ${response.status}）`, response.status)
+    return response.json()
+  }
+
   return {
     media,
+    experiment: (id: string) => experimentRequest(id),
+    chooseExperiment: (id: string, choice: string) => experimentRequest(id, choice),
 
     /** Three steps: presigned URL, PUT the bytes, register with the server's storage key. */
     async uploadImage(bytes: Uint8Array<ArrayBuffer>, contentType: string): Promise<MediaInfo> {

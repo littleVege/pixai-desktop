@@ -80,6 +80,7 @@ async function call(method: string, input: any = {}) {
       changed()
       return { ...job, cleared }
     }
+    case 'chooseExperiment': return service.chooseExperiment(input)
     case 'reconcileJob': return service.reconcileJob(input)
     case 'savePreset': { const result = store.create('preset', { title: input.title, snapshot: input.snapshot }); changed(); return result }
     case 'savePreference': { const result = store.savePreference(input.text, input.id); changed(); return result }

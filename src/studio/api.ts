@@ -19,6 +19,7 @@ export interface StudioBridge {
   moveWork(input: { workId: string; libraryState: 'active' | 'archived' | 'deleted' }): Promise<StudioEntity>
   renameWork(input: unknown): Promise<StudioEntity>
   generate(input: unknown): Promise<StudioEntity & { cleared: boolean }>
+  chooseExperiment(input: { jobId: string; choice: 'picked_left' | 'picked_right' | 'tie' | 'skip' }): Promise<void>
   reconcileJob(input: { jobId: string; action: 'link'; remoteId: string } | { jobId: string; action: 'stopTracking' }): Promise<StudioEntity>
   chatgptLogin(): Promise<ChatGPTSession>
   chatgptCancel(): Promise<void>

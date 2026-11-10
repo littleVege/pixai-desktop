@@ -6,7 +6,7 @@ import { StudioStore } from './store'
 import { StudioService } from './service'
 import type { GenerateRequest } from '../server/taskParams'
 
-const remote = vi.hoisted(() => ({ createTask: vi.fn(), task: vi.fn(), media: vi.fn(), uploadImage: vi.fn() }))
+const remote = vi.hoisted(() => ({ experiment: vi.fn(), chooseExperiment: vi.fn(), createTask: vi.fn(), task: vi.fn(), media: vi.fn(), uploadImage: vi.fn() }))
 vi.mock('../server/pixai', async importOriginal => ({ ...await importOriginal<typeof import('../server/pixai')>(), createPixaiClient: () => remote }))
 const request: GenerateRequest = { prompt: 'silver-haired knight', modelVersionId: '2024383379556065549', modelType: 'MMDIT26B_MODEL', recipeIds: [], loras: [], contextImages: [], aspectRatio: '1:1', size: '1k', sampling: { method: 'Euler', steps: 25, cfgScale: 5 }, batchSize: 1 }
 let store: StudioStore
@@ -42,6 +42,26 @@ describe('generation lifecycle', () => {
       expect(store.get(job.id)?.data.saveStatus).toBe('saved')
       expect(store.list('asset', work.id)).toHaveLength(2)
       expect(remote.media.mock.calls.map(([id]) => id)).toEqual(['10', '11', '11'])
+      expect(remote.createTask).not.toHaveBeenCalled()
+    } finally { vi.unstubAllGlobals() }
+  })
+  it('recovers a running task waiting for an A/B choice and downloads the selected result without resubmission', async () => {
+    const work = service.createWork('two candidates', {})
+    const job = store.create('job', { remoteId: '123', status: 'running', saveStatus: 'pending' }, work.id)
+    remote.task.mockResolvedValue({ status: 'running', updatedAt: new Date().toISOString(), outputs: {} })
+    remote.experiment.mockResolvedValue({ status: 'selecting', leftMedias: [{ mediaId: '10', mediaUrl: 'https://example.test/a' }], rightMedias: [{ mediaId: '11', mediaUrl: 'https://example.test/b' }] })
+    await service.poll()
+    expect(store.get(job.id)?.data.status).toBe('selecting')
+    expect(remote.chooseExperiment).not.toHaveBeenCalled()
+    await service.chooseExperiment({ jobId: job.id, choice: 'picked_right' })
+    expect(remote.chooseExperiment).toHaveBeenCalledWith('123', 'picked_right')
+    remote.task.mockResolvedValue({ status: 'completed', outputs: { mediaId: '11' } })
+    remote.media.mockResolvedValue({ urls: [{ variant: 'PUBLIC', url: 'https://example.test/b' }] })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('chosen')))
+    try {
+      await service.poll()
+      expect(store.get(job.id)?.data.saveStatus).toBe('saved')
+      expect(store.list('asset', work.id).map(asset => asset.data.mediaId)).toEqual(['11'])
       expect(remote.createTask).not.toHaveBeenCalled()
     } finally { vi.unstubAllGlobals() }
   })

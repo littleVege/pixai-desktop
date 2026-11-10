@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { studio, type StudioEntity } from './api'
 
-const labels: Record<string, string> = { submitting: '正在提交', waiting: '等待生成', pending: '排队中', running: '生成中', processing: '生成中', completed: '保存图片', failed: '任务未完成', unknown: '提交结果不明' }
+const labels: Record<string, string> = { selecting: '等待选图', submitting: '正在提交', waiting: '等待生成', pending: '排队中', running: '生成中', processing: '生成中', completed: '保存图片', failed: '任务未完成', unknown: '提交结果不明' }
 export function GenerationTasks({ jobs, onChange }: { jobs: StudioEntity[]; onChange: () => Promise<void> }) {
   const [selected, setSelected] = useState<StudioEntity | null>(null)
   const [remoteId, setRemoteId] = useState('')

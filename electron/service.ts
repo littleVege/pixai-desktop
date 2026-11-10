@@ -131,6 +131,20 @@ export class StudioService {
     this.changed()
     return this.store.get(jobId)
   }
+  private choosing = new Set<string>()
+  async chooseExperiment(raw: unknown) {
+    const { jobId, choice } = z.object({ jobId: z.string(), choice: z.enum(['picked_left', 'picked_right', 'tie', 'skip']) }).parse(raw)
+    const job = this.store.get(jobId)
+    if (job?.kind !== 'job' || job.data.status !== 'selecting' || !job.data.remoteId || this.choosing.has(jobId)) throw new Error('任务状态已改变，请刷新后重试')
+    this.choosing.add(jobId)
+    try {
+      await this.client().chooseExperiment(String(job.data.remoteId), choice)
+      this.store.update(jobId, { status: 'waiting', experiment: null, choiceSubmitted: true, retryAt: 0 })
+    } finally {
+      this.choosing.delete(jobId)
+      this.changed()
+    }
+  }
   async poll() {
     if (this.busy || !this.credentials().pixaiKey) return
     this.busy = true
@@ -147,6 +161,20 @@ export class StudioService {
           if (FAILED.has(status)) { this.store.update(job.id, { ...checked, status: 'failed', error: `远程任务 ${status}` }); this.changed(); continue }
           const sinceUpdate = now - Date.parse(task.updatedAt || job.createdAt)
           const interval = sinceUpdate >= 3_600_000 ? 60_000 : sinceUpdate >= 600_000 ? 30_000 : sinceUpdate >= 60_000 ? 10_000 : 3_000
+          // The root can remain running until the user selects one of the experiment outputs.
+          // Inspect the session separately and leave the ordinary task as the authority on final output.
+          if (!SUCCEEDED.has(status) && !job.data.choiceSubmitted && !this.choosing.has(job.id)
+            && now >= Number(job.data.checkExperimentAt ?? 0)) {
+            const session = await client.experiment(String(job.data.remoteId))
+            if (this.store.get(job.id)?.data.choiceSubmitted || this.choosing.has(job.id)) continue
+            if (session?.status === 'selecting') {
+              this.store.update(job.id, { ...checked, status: 'selecting', experiment: { left: session.leftMedias ?? [], right: session.rightMedias ?? [] },
+                error: null, retryAttempts: 0, retryAt: now + 10000 })
+              this.changed()
+              continue
+            }
+            this.store.update(job.id, { experiment: null, checkExperimentAt: now + (session?.status === 'pending' ? 3000 : 30000) })
+          }
           this.store.update(job.id, { ...checked, status: SUCCEEDED.has(status) ? 'completed' : status, outputs: task.outputs, error: null, retryAt: now + interval, retryAttempts: 0 })
           if (SUCCEEDED.has(status)) {
             this.store.update(job.id, { saveStatus: 'downloading' })
