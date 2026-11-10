@@ -34,3 +34,7 @@ Apple Silicon 应用位于 `release/mac-arm64/PixAI Desktop.app`。在没有 Dev
 本项目面向本地、非商业使用。PixAI Desktop 自有代码采用 [MIT 许可证](LICENSE)。随附的 OpenAI Sign-in with ChatGPT DevKit 及其修改遵循[原始非商业许可证](electron/vendor/siwc/LICENSE)，其他第三方组件保留各自许可证。
 
 在「设置 → 模型服务 → 语言模型」选择「ChatGPT 套餐」，点击 Continue with ChatGPT，在浏览器授权套餐用量后选择模型并保存。可在同一位置管理用量、断开连接或切回 API Key。图像生成仍需 PixAI API Key。
+
+### macOS 安装包
+
+从 [GitHub Releases](https://github.com/littleVege/pixai-desktop/releases) 下载与 Mac 芯片对应的 DMG。每个 PR 会在 GitHub 上运行测试并分别构建 Apple Silicon 和 Intel 安装包。维护者将版本变更通过 PR 合入后，在对应提交推送与 `package.json` 一致的 `vX.Y.Z` 标签，即可生成带 SHA-256 校验文件的 Release。
