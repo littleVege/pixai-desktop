@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Ellipsis, Plus, Settings, Sparkles, ImageIcon, Bookmark, PanelRight, ChevronDown, PencilLine, Settings2, Undo2 } from 'lucide-react'
 import { Composer } from '@/components/composer/Composer'
 import { Button } from '@/components/ui/button'
-import { useComposerStore, selectState, newComposerDraft } from '@/store/composerStore'
+import { useComposerStore, selectState, EMPTY_DOC, defaultParams, newComposerDraft } from '@/store/composerStore'
 import { findModel, rememberRecipes, presets, generations, uploads } from '@/mock/data'
 import { docToPrompt, promptToDoc } from '@/lib/promptSerialize'
 import type { ComposerState, ComposerSubmission } from '@/types'
@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SettingsDialog } from './SettingsDialog'
 import { ImageWorkspace } from './ImageWorkspace'
 import { ResultGallery } from './ResultGallery'
+import { rebaseParams } from '@/lib/params'
 import { WorkSearch } from './WorkSearch'
 import { WorkTitle } from './WorkTitle'
 import { Notices, reportError as report } from './Notices'
@@ -92,8 +93,16 @@ export default function StudioApp() {
     current.current.loading = true
     rememberRecipes(item.data.draft?.recipeMetadata ?? [])
     useReferenceSceneStore.setState({ scenes: item.data.draft?.scenes ?? {}, dialog: null })
-    if (item.data.draft) useComposerStore.setState({ ...newComposerDraft(), ...item.data.draft, docRevision: useComposerStore.getState().docRevision + 1 })
-    else useComposerStore.getState().reset()
+    const saved = item.data.draft
+    if (saved) {
+      const defaults = newComposerDraft()
+      useComposerStore.setState({
+        ...defaults, ...saved,
+        modelVersionId: saved.modelVersionId || defaults.modelVersionId,
+        params: !saved.params ? defaults.params : saved.modelVersionId ? saved.params : rebaseParams(saved.params, defaultParams(''), defaults.params),
+        docRevision: useComposerStore.getState().docRevision + 1,
+      })
+    } else useComposerStore.getState().reset()
     current.current = { id: item.id, revision: item.data.draftRevision ?? 0, edits: 0, loading: false }
     ++refreshSequence.current
     applySnapshot(latest)
@@ -120,6 +129,19 @@ export default function StudioApp() {
       await openWork(item, navigation)
     } catch (e) { current.current.loading = false; report(e) }
   }
+  async function submitPrompt(send: (revision: number) => Promise<{ cleared: boolean }>) {
+    const owner = current.current
+    const edits = owner.edits
+    const result = await send(owner.revision)
+    if (result.cleared && owner === current.current && owner.edits === edits) {
+      owner.loading = true
+      try {
+        useComposerStore.setState(state => ({ doc: EMPTY_DOC, docRevision: state.docRevision + 1 }))
+        setCandidate(undefined)
+        setUndoPrompt(undefined)
+      } finally { owner.loading = false }
+    }
+  }
   async function generate(submission: ComposerSubmission) {
     if (!workId) return
     setBusy(true)
@@ -130,7 +152,7 @@ export default function StudioApp() {
       const snapshot = currentDraft()
       const modelType = findModel(submission.modelVersionId)?.type ?? (snapshot.promptContext.model?.versionId === submission.modelVersionId ? snapshot.promptContext.model.type : undefined)
       if (!modelType) throw new Error('无法确认模型类型，请在目录中重新选择模型')
-      await studio.generate({ workId, request: { ...submission, modelType }, snapshot })
+      await submitPrompt(submittedRevision => studio.generate({ workId, submittedRevision, request: { ...submission, modelType }, snapshot }))
       await refresh()
     } catch (e) { report(e) } finally { setBusy(false) }
   }
@@ -204,7 +226,7 @@ export default function StudioApp() {
     try {
       await waitForDraft()
       if (current.current.id !== workId) return
-      await studio.startAgent({ workId, goal: submission.prompt, maxImages, maxModelCalls: maxCalls, snapshot: currentDraft() })
+      await submitPrompt(submittedRevision => studio.startAgent({ workId, submittedRevision, goal: submission.prompt, maxImages, maxModelCalls: maxCalls, snapshot: currentDraft() }))
       await refresh()
     } catch (e) { report(e) } finally { setBusy(false) }
   }
@@ -285,7 +307,7 @@ export default function StudioApp() {
         </div>
         {workId && panelOpen && <ImageWorkspace>
           <h2>图片</h2>
-          <ResultGallery key={workId} preview={preview} setPreview={setPreview} assets={resultAssets}
+          <ResultGallery key={workId} preview={preview} setPreview={setPreview} jobs={data.jobs} assets={resultAssets}
             revisions={data.revisions} busy={busy} onRestore={restoreRevision} onError={report} />
         </ImageWorkspace>}
         </div>

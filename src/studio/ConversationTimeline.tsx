@@ -1,3 +1,4 @@
+import { PendingImage, pendingJobs } from './PendingImage'
 import { useLayoutEffect, useRef } from 'react'
 import { Play, Square, UserRound, Sparkles, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,7 +17,7 @@ export function ConversationTimeline({ data, onChange, onResume, onError, onPrev
 }) {
   const scroll = useRef<HTMLDivElement>(null)
   const following = useRef(true)
-  const events = [...data.messages.slice().reverse(), ...data.revisions.slice().reverse(), ...data.assets.slice().reverse().filter(asset => asset.data.source === 'generation')]
+  const events = [...pendingJobs(data.jobs), ...data.messages.slice().reverse(), ...data.revisions.slice().reverse(), ...data.assets.slice().reverse().filter(asset => asset.data.source === 'generation')]
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   useLayoutEffect(() => {
     if (following.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight
@@ -27,6 +28,7 @@ export function ConversationTimeline({ data, onChange, onResume, onError, onPrev
   }}>
     {!events.length && <div className="conversation-empty">在下方写下第一个创作想法。</div>}
     <ol className="conversation-timeline">{events.map(event => {
+      if (event.kind === 'job') return <li key={event.id} className="conversation-output"><PendingImage job={event} /></li>
       const revisionJobs = event.kind === 'revision' ? data.jobs.filter(job => job.data.revisionId === event.id) : []
       const manual = event.kind === 'revision' && revisionJobs.length > 0 && revisionJobs.every(job => !job.data.runId)
       const user = event.data.role === 'user' || manual

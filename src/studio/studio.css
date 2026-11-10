@@ -132,3 +132,12 @@
 .work-search-results span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .work-search-results small { white-space: nowrap; color: #71717a; }
 .work-search-results button:is(:hover,:focus-visible) { background: #f3effa; }
+
+.studio-results.conversation-workspace { padding: 0; overflow: hidden; }
+.conversation-scroll { padding-inline: 24px; }
+.pending-image { width: min(260px, 100%); min-height: 148px; border-radius: 8px; background: #f4f1f9; color: #6a587c; display: grid; align-content: center; justify-items: center; gap: 10px; font-size: 13px; }
+.conversation-output:has(.pending-image) { width: 280px; }
+.image-workspace .pending-image { width: 100%; }
+.pending-image svg { animation: pending-spin 1.4s linear infinite; }
+@keyframes pending-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pending-image svg { animation: none; } }
