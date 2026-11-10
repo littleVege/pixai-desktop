@@ -141,3 +141,9 @@
 .pending-image svg { animation: pending-spin 1.4s linear infinite; }
 @keyframes pending-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pending-image svg { animation: none; } }
+
+.experiment-choice { display: grid; gap: 10px; width: min(360px, 100%); padding: 8px; }
+.experiment-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.experiment-options button { display: grid; gap: 5px; align-content: end; padding: 5px; border: 1px solid #ded8e8; border-radius: 8px; }
+.experiment-options button:is(:hover,:focus-visible) { border-color: #8b5cf6; }
+.experiment-options img { width: 100%; max-height: 200px; object-fit: contain; }
