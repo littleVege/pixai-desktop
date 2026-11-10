@@ -10,6 +10,9 @@ permissions:
   contents: read
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   build:
     name: Build macOS (${{ matrix.arch }})
     strategy:
@@ -51,7 +54,7 @@ jobs:
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [ci, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
