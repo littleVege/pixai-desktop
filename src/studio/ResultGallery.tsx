@@ -1,4 +1,4 @@
-import { PendingImage, pendingJobs } from './PendingImage'
+import { PendingImage, pendingJobs, visibleResults } from './PendingImage'
 import { useState } from 'react'
 import { Download, History, Columns2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,8 @@ export function ResultGallery({ preview, setPreview, assets, jobs, revisions, bu
   const [selected, setSelected] = useState<string[]>([])
   const revisionOrder = [...revisions].reverse()
   const version = (id: string) => `v${revisionOrder.findIndex(r => r.id === id) + 1}`
-  const shown = assets.filter(asset => filter === 'all' || asset.data.revisionId === filter)
+  const ready = visibleResults(assets, jobs)
+  const shown = ready.filter(asset => filter === 'all' || asset.data.revisionId === filter)
   const pending = pendingJobs(jobs).filter(job => filter === 'all' || job.data.revisionId === filter)
   const inspected = preview.map(id => assets.find(asset => asset.id === id)).filter((asset): asset is StudioEntity => !!asset)
   function toggle(id: string) {
@@ -21,8 +22,8 @@ export function ResultGallery({ preview, setPreview, assets, jobs, revisions, bu
   return <>
     <div className="results-toolbar">
       <Select value={filter} onValueChange={setFilter}><SelectTrigger aria-label="按版本查看" className="w-44"><SelectValue /></SelectTrigger><SelectContent>
-        <SelectItem value="all">全部版本 · {assets.length} 张</SelectItem>
-        {revisionOrder.map(revision => <SelectItem key={revision.id} value={revision.id}>{version(revision.id)} · {assets.filter(a => a.data.revisionId === revision.id).length} 张</SelectItem>)}
+        <SelectItem value="all">全部版本 · {ready.length} 张</SelectItem>
+        {revisionOrder.map(revision => <SelectItem key={revision.id} value={revision.id}>{version(revision.id)} · {ready.filter(a => a.data.revisionId === revision.id).length} 张</SelectItem>)}
       </SelectContent></Select>
       <Button variant="outline" disabled={selected.length !== 2} onClick={() => setPreview(selected)}><Columns2 data-icon="inline-start" />比较{selected.length ? ` (${selected.length}/2)` : ''}</Button>
       {!!selected.length && <Button variant="ghost" onClick={() => setSelected([])}>清除选择</Button>}

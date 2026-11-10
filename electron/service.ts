@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { writeFile, rename, readFile, mkdir } from 'node:fs/promises'
+import { writeFile, rename, readFile, mkdir, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { StudioStore } from './store'
 import { createPixaiClient, mediaIdsFromOutputs, bestUrl, SUCCEEDED, FAILED } from '../server/pixai'
@@ -131,6 +131,30 @@ export class StudioService {
     this.changed()
     return this.store.get(jobId)
   }
+  private async experimentPreviews(items: { mediaId: string }[] | null) {
+    return Promise.all((items ?? []).map(async ({ mediaId }) => {
+      if (!/^\d+$/.test(mediaId)) throw new Error('候选图片 ID 无效')
+      const prefix = `experiment-${mediaId}`
+      const formats: Record<string, string> = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/avif': 'avif', 'image/gif': 'gif' }
+      for (const extension of Object.values(formats)) {
+        const filename = prefix + '.' + extension
+        try { await access(join(this.store.directory, 'assets', filename)); return { mediaId, filename } }
+        catch { /* A different format may already be cached. */ }
+      }
+      const media = await this.client().media(mediaId)
+      const url = media.urls.find(item => item.variant === 'THUMBNAIL')?.url ?? bestUrl(media)
+      if (!url) throw new Error('候选预览暂不可用')
+      const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
+      const extension = formats[response.headers.get('content-type')?.split(';')[0] ?? '']
+      if (!response.ok || !extension) throw new Error('候选预览下载失败')
+      const filename = prefix + '.' + extension
+      const path = join(this.store.directory, 'assets', filename)
+      const temporary = path + '.' + randomUUID() + '.part'
+      await writeFile(temporary, new Uint8Array(await response.arrayBuffer()))
+      await rename(temporary, path)
+      return { mediaId, filename }
+    }))
+  }
   private choosing = new Set<string>()
   async chooseExperiment(raw: unknown) {
     const { jobId, choice } = z.object({ jobId: z.string(), choice: z.enum(['picked_left', 'picked_right', 'tie', 'skip']) }).parse(raw)
@@ -168,7 +192,10 @@ export class StudioService {
             const session = await client.experiment(String(job.data.remoteId))
             if (this.store.get(job.id)?.data.choiceSubmitted || this.choosing.has(job.id)) continue
             if (session?.status === 'selecting') {
-              this.store.update(job.id, { ...checked, status: 'selecting', experiment: { left: session.leftMedias ?? [], right: session.rightMedias ?? [] },
+              this.store.update(job.id, { ...checked, status: 'selecting' })
+              const [left, right] = await Promise.all([this.experimentPreviews(session.leftMedias), this.experimentPreviews(session.rightMedias)])
+              if (this.store.get(job.id)?.data.choiceSubmitted || this.choosing.has(job.id)) continue
+              this.store.update(job.id, { ...checked, status: 'selecting', experiment: { left, right },
                 error: null, retryAttempts: 0, retryAt: now + 10000 })
               this.changed()
               continue

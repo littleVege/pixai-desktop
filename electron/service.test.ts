@@ -50,7 +50,17 @@ describe('generation lifecycle', () => {
     const job = store.create('job', { remoteId: '123', status: 'running', saveStatus: 'pending' }, work.id)
     remote.task.mockResolvedValue({ status: 'running', updatedAt: new Date().toISOString(), outputs: {} })
     remote.experiment.mockResolvedValue({ status: 'selecting', leftMedias: [{ mediaId: '10', mediaUrl: 'https://example.test/a' }], rightMedias: [{ mediaId: '11', mediaUrl: 'https://example.test/b' }] })
-    await service.poll()
+    remote.media.mockImplementation(async (id: string) => ({ urls: [{ variant: 'THUMBNAIL', url: 'https://example.test/fresh/' + id }] }))
+    const previewFetch = vi.fn(async () => new Response('preview', { headers: { 'content-type': 'image/webp' } }))
+    vi.stubGlobal('fetch', previewFetch)
+    try {
+      await service.poll()
+      expect(store.get(job.id)?.data.experiment).toEqual({ left: [{ mediaId: '10', filename: 'experiment-10.webp' }], right: [{ mediaId: '11', filename: 'experiment-11.webp' }] })
+      expect(previewFetch).toHaveBeenCalledWith('https://example.test/fresh/10', expect.anything())
+      store.update(job.id, { retryAt: 0 })
+      await service.poll()
+      expect(previewFetch).toHaveBeenCalledTimes(2)
+    } finally { vi.unstubAllGlobals() }
     expect(store.get(job.id)?.data.status).toBe('selecting')
     expect(remote.chooseExperiment).not.toHaveBeenCalled()
     await service.chooseExperiment({ jobId: job.id, choice: 'picked_right' })
