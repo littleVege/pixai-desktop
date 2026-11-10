@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "lib": ["ES2023", "DOM"], "module": "ESNext",
+    "moduleResolution": "Bundler", "strict": true, "skipLibCheck": true,
+    "noEmit": true, "esModuleInterop": true, "types": ["node"]
+  },
+  "include": ["electron/**/*.ts", "server/pixai.ts", "server/taskParams.ts"]
+}

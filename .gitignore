@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-electron/
+release/
+.env
+.env.*
+!.env.example
+*.log
+.data/
+
+# Local development notes and macOS metadata
+docs/implementation-progress.md
+.DS_Store
