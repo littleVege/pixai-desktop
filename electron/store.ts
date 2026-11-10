@@ -81,6 +81,13 @@ export class StudioStore {
   setSetting(key: string, value: unknown) {
     this.db.prepare('INSERT INTO settings VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key, JSON.stringify(value))
   }
+  clearSubmittedPrompt(workId: string, revision: number, runId?: string) {
+    const work = this.get(workId)
+    const draft = work?.data.draft as Partial<ComposerState> | undefined
+    if (!draft || revision !== work?.data.draftRevision) return false
+    this.update(workId, { draft: { ...draft, doc: { type: 'doc', content: [{ type: 'paragraph' }] } }, clearedForRun: runId ?? null })
+    return true
+  }
   saveDraft(workId: string, draft: unknown, expectedRevision: number, promptAction?: 'accept' | 'undo') {
     return this.db.transaction(() => {
       const work = this.get(workId)
@@ -99,7 +106,7 @@ export class StudioStore {
           this.update(run.id, { status: 'paused', reason: '用户编辑了草稿' })
         }
       }
-      return this.update(workId, { draft, draftRevision: expectedRevision + 1 })
+      return this.update(workId, { draft, clearedForRun: null, draftRevision: expectedRevision + 1 })
     })()
   }
   restoreRevision(workId: string, revisionId: string, expectedRevision: number, assetId?: string) {

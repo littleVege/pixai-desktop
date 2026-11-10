@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { JSONContent } from '@tiptap/react'
 import type { AspectRatio, ComposerState, LoraSelection, Params, Preset, Reference } from '@/types'
 import { DEFAULT_LORA_WEIGHT, MAX_RECIPES, MAX_REFERENCES } from '@/types'
-import { DEFAULT_MODEL_VERSION_ID, findModel } from '@/mock/data'
+import { DEFAULT_MODEL_VERSION_ID, findModel, models } from '@/mock/data'
 import { paramsDefaults, rebaseParams } from '@/lib/params'
 
 export const EMPTY_DOC: JSONContent = { type: 'doc', content: [{ type: 'paragraph' }] }
@@ -46,18 +46,32 @@ export interface ComposerActions {
   reset: () => void
 }
 
-export const newComposerDraft = (): ComposerState => ({
-  recipeMetadata: [],
-  lockedContents: [],
-  promptContext: undefined,
-  doc: EMPTY_DOC,
-  recipeIds: [],
-  loras: [],
-  references: [],
-  modelVersionId: DEFAULT_MODEL_VERSION_ID,
-  params: defaultParams(DEFAULT_MODEL_VERSION_ID),
-  presetId: null,
-})
+const modelPreference = 'pixai.composer.lastModel'
+function preferredModel() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(modelPreference) ?? 'null')
+    if (saved && typeof saved.versionId === 'string' && saved.versionId && saved.title && saved.type) {
+      if (!findModel(saved.versionId)) models.push(saved)
+      return saved.versionId as string
+    }
+  } catch { /* Storage may be unavailable. */ }
+  return DEFAULT_MODEL_VERSION_ID
+}
+export const newComposerDraft = (): ComposerState => {
+  const modelVersionId = preferredModel()
+  return {
+    recipeMetadata: [],
+    lockedContents: [],
+    promptContext: undefined,
+    doc: EMPTY_DOC,
+    recipeIds: [],
+    loras: [],
+    references: [],
+    modelVersionId,
+    params: defaultParams(modelVersionId),
+    presetId: null,
+  }
+}
 
 export const useComposerStore = create<ComposerState & ComposerActions>()((set, get) => ({
   ...newComposerDraft(),
@@ -116,12 +130,17 @@ export const useComposerStore = create<ComposerState & ComposerActions>()((set, 
   removeReference: id => set(s => ({ references: s.references.filter(r => r.id !== id) })),
   replaceReference: (id, patch) => set(s => ({ references: s.references.map(r => (r.id === id ? { ...r, ...patch } : r)) })),
 
-  setModel: versionId =>
+  setModel: versionId => {
+    const model = findModel(versionId)
+    if (model) {
+      try { localStorage.setItem(modelPreference, JSON.stringify(model)) } catch { /* Current selection still applies. */ }
+    }
     set(s => ({
       modelVersionId: versionId,
       presetId: null,
       params: rebaseParams(s.params, defaultParams(s.modelVersionId), defaultParams(versionId)),
-    })),
+    }))
+  },
   setParams: patch => set(s => ({ params: { ...s.params, ...patch } })),
   setAspectRatio: aspectRatio => set(s => ({ params: { ...s.params, aspectRatio } })),
 

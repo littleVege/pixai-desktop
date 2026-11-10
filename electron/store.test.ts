@@ -189,3 +189,15 @@ it('archives, trashes and restores a work without losing its history or restarti
   expect(store.get(run.id)?.data.status).toBe('paused')
   expect(() => store.moveWork(message.id, 'deleted')).toThrow()
 })
+
+it('consumes the submitted text without pausing the run or erasing a later edit', () => {
+  const { store, work, run } = fixture()
+  const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'first' }] }] }
+  store.update(work.id, { draft: { doc, references: ['ref'] } })
+  expect(store.clearSubmittedPrompt(work.id, 0, run.id)).toBe(true)
+  expect(store.get(work.id)?.data.draft).toEqual({ doc: { type: 'doc', content: [{ type: 'paragraph' }] }, references: ['ref'] })
+  expect(store.get(run.id)?.data.status).toBe('planning')
+  store.saveDraft(work.id, { doc }, 0)
+  expect(store.clearSubmittedPrompt(work.id, 0)).toBe(false)
+  expect(store.get(work.id)?.data.draft).toEqual({ doc })
+})

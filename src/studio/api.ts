@@ -18,7 +18,7 @@ export interface StudioBridge {
   restoreRevision(input: { workId: string; revisionId: string; assetId?: string; expectedRevision: number }): Promise<StudioEntity>
   moveWork(input: { workId: string; libraryState: 'active' | 'archived' | 'deleted' }): Promise<StudioEntity>
   renameWork(input: unknown): Promise<StudioEntity>
-  generate(input: unknown): Promise<StudioEntity>
+  generate(input: unknown): Promise<StudioEntity & { cleared: boolean }>
   reconcileJob(input: { jobId: string; action: 'link'; remoteId: string } | { jobId: string; action: 'stopTracking' }): Promise<StudioEntity>
   chatgptLogin(): Promise<ChatGPTSession>
   chatgptCancel(): Promise<void>
@@ -35,7 +35,7 @@ export interface StudioBridge {
   confirmSave(input: { messageId: string; accept: boolean }): Promise<StudioEntity>
   setPreferenceActive(input: { id: string; active: boolean }): Promise<StudioEntity>
   pauseRun(input: unknown): Promise<StudioEntity>
-  startAgent(input: unknown): Promise<StudioEntity>
+  startAgent(input: unknown): Promise<StudioEntity & { cleared: boolean }>
   continueAgent(input: unknown): Promise<StudioEntity>
   enhancePrompt(input: unknown): Promise<PromptSuggestion>
   importReference(input: unknown): Promise<unknown>

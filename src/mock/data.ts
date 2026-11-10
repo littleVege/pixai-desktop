@@ -12,7 +12,7 @@ export const presets: Preset[] = []
 export const recentRecipeIds: string[] = []
 export const recommendedModelVersionIds: string[] = []
 export const recentModelVersionIds: string[] = []
-export const DEFAULT_MODEL_VERSION_ID = ''
+export const DEFAULT_MODEL_VERSION_ID = '2050048243034896798'
 export const findModel = (id: string) => models.find(m => m.versionId === id)
 export const findRecipe = (id: string) => recipes.find(r => r.id === id)
 export const findLora = (id: string) => loras.find(l => l.versionId === id)

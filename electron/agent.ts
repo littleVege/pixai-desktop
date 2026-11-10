@@ -107,7 +107,7 @@ export class CreativeAgent {
     this.store.pauseActiveRuns(run.workId!, '用户继续了另一次执行', runId)
     this.abortPaused()
     const previous = (run.data.snapshot ?? {}) as Partial<ComposerState>
-    const draft = (work.data.draft ?? previous) as Partial<ComposerState>
+    const draft = (work.data.clearedForRun === runId ? previous : work.data.draft ?? previous) as Partial<ComposerState>
     const prompt = docToPrompt(draft.doc, draft.references ?? [])
     const changedPrompt = prompt !== docToPrompt(previous.doc, previous.references ?? [])
     const goal = changedPrompt ? prompt || '按当前草稿的配方和设置继续。' : run.data.goal

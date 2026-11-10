@@ -59,7 +59,12 @@ async function call(method: string, input: any = {}) {
       if (!asset || asset.kind !== 'asset') throw new Error('图片不存在')
       return { filename: asset.data.filename }
     }
-    case 'startAgent': return agent.start(input)
+    case 'startAgent': {
+      const run = agent.start(input)
+      const cleared = store.clearSubmittedPrompt(input.workId, input.submittedRevision, run.id)
+      changed()
+      return { ...run, cleared }
+    }
     case 'continueAgent': return agent.resume(input.runId)
     case 'enhancePrompt': return agent.enhance(input)
     case 'checkCapabilities': return agent.checkCapabilities()
@@ -69,7 +74,12 @@ async function call(method: string, input: any = {}) {
     case 'restoreRevision': { const result = store.restoreRevision(input.workId, input.revisionId, input.expectedRevision, input.assetId); changed(); return result }
     case 'moveWork': { const result = store.moveWork(input.workId, input.libraryState); changed(); return result }
     case 'renameWork': { const result = store.renameWork(input.workId, input.title); changed(); return result }
-    case 'generate': return service.generate(input.workId, input.request, input.snapshot)
+    case 'generate': {
+      const job = await service.generate(input.workId, input.request, input.snapshot)
+      const cleared = !!job?.data.remoteId && store.clearSubmittedPrompt(input.workId, input.submittedRevision)
+      changed()
+      return { ...job, cleared }
+    }
     case 'reconcileJob': return service.reconcileJob(input)
     case 'savePreset': { const result = store.create('preset', { title: input.title, snapshot: input.snapshot }); changed(); return result }
     case 'savePreference': { const result = store.savePreference(input.text, input.id); changed(); return result }
