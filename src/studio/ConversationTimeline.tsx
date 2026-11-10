@@ -17,8 +17,21 @@ export function ConversationTimeline({ data, onChange, onResume, onError, onPrev
 }) {
   const scroll = useRef<HTMLDivElement>(null)
   const following = useRef(true)
-  const events = [...data.messages.slice().reverse(), ...data.revisions.slice().reverse(), ...visibleResults(data.assets, data.jobs).reverse().filter(asset => asset.data.source === 'generation')]
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  // Anchor outputs to the request even when jobs finish out of order or share timestamps.
+  const revisions = new Set(data.revisions.map(revision => revision.id))
+  const outputs = new Map<string, StudioEntity[]>()
+  const roots = [...data.messages.slice().reverse(), ...data.revisions.slice().reverse()]
+  const assets = visibleResults(data.assets, data.jobs).reverse().filter(asset => asset.data.source === 'generation')
+  function appendOutput(revisionId: string, item: StudioEntity) {
+    if (!revisions.has(revisionId)) { roots.push(item); return }
+    const group = outputs.get(revisionId)
+    if (group) group.push(item)
+    else outputs.set(revisionId, [item])
+  }
+  for (const job of pendingJobs(data.jobs).reverse()) appendOutput(job.data.revisionId, job)
+  for (const asset of assets) appendOutput(asset.data.revisionId, asset)
+  const events = roots.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .flatMap(event => [event, ...(outputs.get(event.id) ?? [])])
   useLayoutEffect(() => {
     if (following.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight
   }, [data])
@@ -28,6 +41,7 @@ export function ConversationTimeline({ data, onChange, onResume, onError, onPrev
   }}>
     {!events.length && <div className="conversation-empty">在下方写下第一个创作想法。</div>}
     <ol className="conversation-timeline">{events.map(event => {
+      if (event.kind === 'job') return <li key={event.id} className="conversation-output"><PendingImage job={event} /></li>
       const revisionJobs = event.kind === 'revision' ? data.jobs.filter(job => job.data.revisionId === event.id) : []
       const manual = event.kind === 'revision' && revisionJobs.length > 0 && revisionJobs.every(job => !job.data.runId)
       const user = event.data.role === 'user' || manual
@@ -55,8 +69,7 @@ export function ConversationTimeline({ data, onChange, onResume, onError, onPrev
         </div>}
         {event.kind === 'revision' && <><p className="conversation-prompt">{event.data.request?.prompt}</p>
           {event.data.explanation && <p>{event.data.explanation}</p>}
-          <GenerationTasks jobs={revisionJobs} onChange={onChange} />
-          {pendingJobs(revisionJobs).map(job => <PendingImage key={job.id} job={job} />)}</>}
+          <GenerationTasks jobs={revisionJobs} onChange={onChange} /></>}
         {event.kind === 'asset' && <button className="conversation-image" onClick={() => onPreview(event)} aria-label="查看这张生成原图"><img src={assetUrl(event.data.filename, true)} alt="本次生成结果" /></button>}
       </li>
     })}</ol>
